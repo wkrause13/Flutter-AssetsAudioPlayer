@@ -785,7 +785,7 @@ public class Player : NSObject, AVAudioPlayerDelegate {
     func play(){
         self.player?.play()
         self.player?.rate = self.rate
-        self.currentTimeTimer = Timer.scheduledTimer(timeInterval: 1, target: self, selector: #selector(updateTimer), userInfo: nil, repeats: true)
+        self.currentTimeTimer = Timer.scheduledTimer(timeInterval: 0.05, target: self, selector: #selector(updateTimer), userInfo: nil, repeats: true)
         self.currentTimeTimer?.fire()
         self.playing = true
         
