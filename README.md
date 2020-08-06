@@ -38,7 +38,7 @@ AssetsAudioPlayer.newPlayer().open(
 
 ```yaml
 dependencies:
-  assets_audio_player: ^2.0.8
+  assets_audio_player: ^2.0.9
 ```
 
 **Works with `flutter: ">=1.12.13+hotfix.6 <2.0.0"`, be sure to upgrade your sdk**
@@ -535,6 +535,27 @@ You can also change actions icons
 <meta-data
     android:name="assets.audio.player.notification.icon.prev"
     android:resource="@drawable/ic_prev_custom"/>
+```
+
+## Handle notification click (android)
+
+Add in main 
+```dart
+AssetsAudioPlayer.setupNotificationsOpenAction((notification) {
+    //custom action
+    return true; //true : handled, does not notify others listeners
+                 //false : enable others listeners to handle it
+});
+```
+
+Then if you want a custom action on widget
+
+```dart
+AssetsAudioPlayer.addNotificationOpenAction((notification) {
+   //custom action
+   return false; //true : handled, does not notify others listeners
+                 //false : enable others listeners to handle it
+});
 ```
 
 ## Custom actions
