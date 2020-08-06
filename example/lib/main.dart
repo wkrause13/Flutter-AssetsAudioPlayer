@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:assets_audio_player/assets_audio_player.dart';
 import 'package:assets_audio_player_example/player/PlaySpeedSelector.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_neumorphic/flutter_neumorphic.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:rxdart/subjects.dart';
 
 import 'player/ForwardRewindSelector.dart';
@@ -35,7 +37,7 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  final audios = <Audio>[
+  var audios = <Audio>[
     //Audio.network(
     //  "https://d14nt81hc5bide.cloudfront.net/U7ZRzzHfk8pvmW28sziKKPzK",
     //  metas: Metas(
@@ -50,14 +52,14 @@ class _MyAppState extends State<MyApp> {
     Audio.network(
       "https://files.freemusicarchive.org/storage-freemusicarchive-org/music/Music_for_Video/springtide/Sounds_strange_weird_but_unmistakably_romantic_Vol1/springtide_-_03_-_We_Are_Heading_to_the_East.mp3",
       metas: Metas(
-          id: "Online",
-          title: "Online",
-          artist: "Florent Champigny",
-          album: "OnlineAlbum",
-          // image: MetasImage.network("https://www.google.com")
-          image: MetasImage.network(
-              "https://image.shutterstock.com/image-vector/pop-music-text-art-colorful-600w-515538502.jpg"),
-          ),
+        id: "Online",
+        title: "Online",
+        artist: "Florent Champigny",
+        album: "OnlineAlbum",
+        // image: MetasImage.network("https://www.google.com")
+        image: MetasImage.network(
+            "https://image.shutterstock.com/image-vector/pop-music-text-art-colorful-600w-515538502.jpg"),
+      ),
     ),
     Audio(
       "assets/audios/rock.mp3",
@@ -127,6 +129,36 @@ class _MyAppState extends State<MyApp> {
     ),
   ];
 
+  _downloadImageFile() async {
+    try {
+      final documentsDirectory = await getApplicationDocumentsDirectory();
+      final String documentsDirectoryPath = documentsDirectory.path;
+      String trackImageUrl =
+          "https://i.ytimg.com/vi/zv_0dSfknBc/maxresdefault.jpg";
+      String imageDownloadPath = '$documentsDirectoryPath/maxresdefault.jpg';
+      CancelToken cancelToken = CancelToken();
+      var dio = new Dio();
+      await dio.download(trackImageUrl, imageDownloadPath,
+          onReceiveProgress: (received, total) {}, cancelToken: cancelToken);
+      print("Downloaded file");
+      setState(() {
+        var newAudio = List<Audio>.from(audios);
+        newAudio.add(Audio("assets/audios/instrumental.mp3",
+            metas: Metas(
+              title: "Instrumental - Dupe",
+              artist: "Florent Champigny",
+              album: "InstrumentalAlbum",
+              image: MetasImage.file(imageDownloadPath),
+            )));
+        setState(() {
+          audios = newAudio;
+        });
+      });
+    } catch (e) {
+      print(e);
+    }
+  }
+
   //final AssetsAudioPlayer _assetsAudioPlayer = AssetsAudioPlayer();
   AssetsAudioPlayer get _assetsAudioPlayer => AssetsAudioPlayer.withId("music");
   final List<StreamSubscription> _subscriptions = [];
@@ -136,6 +168,8 @@ class _MyAppState extends State<MyApp> {
     //_subscriptions.add(_assetsAudioPlayer.playlistFinished.listen((data) {
     //  print("finished : $data");
     //}));
+    _downloadImageFile();
+
     _subscriptions.add(_assetsAudioPlayer.playlistAudioFinished.listen((data) {
       print("playlistAudioFinished : $data");
     }));
@@ -281,8 +315,7 @@ class _MyAppState extends State<MyApp> {
                                     },
                                     onNext: () {
                                       //_assetsAudioPlayer.forward(Duration(seconds: 10));
-                                      _assetsAudioPlayer.next(
-                                        keepLoopMode: true
+                                      _assetsAudioPlayer.next(keepLoopMode: true
                                           /*keepLoopMode: false*/);
                                     },
                                     onPrevious: () {
@@ -347,8 +380,10 @@ class _MyAppState extends State<MyApp> {
                         _assetsAudioPlayer.open(
                           Playlist(audios: myAudios),
                           showNotification: true,
-                          headPhoneStrategy: HeadPhoneStrategy.pauseOnUnplugPlayOnPlug,
-                          audioFocusStrategy: AudioFocusStrategy.request(resumeAfterInterruption: true),
+                          headPhoneStrategy:
+                              HeadPhoneStrategy.pauseOnUnplugPlayOnPlug,
+                          audioFocusStrategy: AudioFocusStrategy.request(
+                              resumeAfterInterruption: true),
                         );
                       },
                       onSelected: (myAudio) async {
@@ -359,24 +394,23 @@ class _MyAppState extends State<MyApp> {
                             showNotification: true,
                             playInBackground: PlayInBackground.enabled,
                             audioFocusStrategy: AudioFocusStrategy.request(
-                              resumeAfterInterruption: true,
-                              resumeOthersPlayersAfterDone: true
-                            ),
+                                resumeAfterInterruption: true,
+                                resumeOthersPlayersAfterDone: true),
                             headPhoneStrategy: HeadPhoneStrategy.pauseOnUnplug,
                             notificationSettings: NotificationSettings(
-                              //seekBarEnabled: false,
-                              //stopEnabled: true,
-                              //customStopAction: (player){
-                              //  player.stop();
-                              //}
-                              //prevEnabled: false,
-                              //customNextAction: (player) {
-                              //  print("next");
-                              //}
-                              //customStopIcon: AndroidResDrawable(name: "ic_stop_custom"),
-                              //customPauseIcon: AndroidResDrawable(name:"ic_pause_custom"),
-                              //customPlayIcon: AndroidResDrawable(name:"ic_play_custom"),
-                            ),
+                                //seekBarEnabled: false,
+                                //stopEnabled: true,
+                                //customStopAction: (player){
+                                //  player.stop();
+                                //}
+                                //prevEnabled: false,
+                                //customNextAction: (player) {
+                                //  print("next");
+                                //}
+                                //customStopIcon: AndroidResDrawable(name: "ic_stop_custom"),
+                                //customPauseIcon: AndroidResDrawable(name:"ic_pause_custom"),
+                                //customPlayIcon: AndroidResDrawable(name:"ic_play_custom"),
+                                ),
                           );
                         } catch (e) {
                           print(e);
