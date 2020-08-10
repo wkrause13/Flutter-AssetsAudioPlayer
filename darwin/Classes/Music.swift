@@ -6,6 +6,8 @@ import UIKit
 import FlutterMacOS
 #endif
 
+import SQLite3
+
 import MediaPlayer
 
 struct NotificationSettings : Equatable {
@@ -43,6 +45,26 @@ func notificationSettings(from: NSDictionary) -> NotificationSettings {
         prevEnabled: from["notif.settings.prevEnabled"] as? Bool ?? true,
         seekBarEnabled: from["notif.settings.seekBarEnabled"] as? Bool ?? true
     )
+}
+
+func openDatabase() -> OpaquePointer? {
+  let fileURL = try! FileManager.default
+    .url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+    .appendingPathComponent("tracker.db")
+
+  print("I'm here: \(fileURL.path)")
+
+
+  var db: OpaquePointer?
+  if sqlite3_open(fileURL.path, &db) == SQLITE_OK {
+    print("Successfully opened connection to database at \(fileURL.path)")
+    return db
+  } else {
+    print("error opening database")
+    sqlite3_close(db)
+    db = nil
+    return nil
+  }
 }
 
 struct AudioMetas : Equatable {
@@ -114,6 +136,9 @@ public class Player : NSObject, AVAudioPlayerDelegate {
     
     var _loopSingleAudio = false
     var isLiveStream: Bool = false
+    var db: OpaquePointer?
+    var bookId: Int?
+    var chapterIndex: Int?
     
     init(channel: FlutterMethodChannel, registrar: FlutterPluginRegistrar) {
         self.channel = channel
@@ -481,7 +506,9 @@ public class Player : NSObject, AVAudioPlayerDelegate {
               audioFocusStrategy: AudioFocusStrategy,
               playSpeed: Double,
               networkHeaders: NSDictionary?,
-              result: @escaping FlutterResult
+              result: @escaping FlutterResult,
+              bookId: Int?,
+              chapterIndex: Int?
     ){
         self.stop()
         guard let url = self.getUrlByType(path: assetPath, audioType: audioType, assetPackage: assetPackage) else {
@@ -531,6 +558,8 @@ public class Player : NSObject, AVAudioPlayerDelegate {
             self.notificationSettings = notificationSettings
             self.audioFocusStrategy = audioFocusStrategy
             self.audioMetas = audioMetas
+            self.bookId = bookId
+            self.chapterIndex = chapterIndex
             
             self._lastOpenedPath = assetPath
             
@@ -553,6 +582,13 @@ public class Player : NSObject, AVAudioPlayerDelegate {
             
             self.setBuffering(true)
             self.isLiveStream = false
+
+            db = openDatabase()
+            if sqlite3_exec(db, "create table if not exists tracker (book_id integer, chapter_index integer, time REAL, UNIQUE(book_id, chapter_index) ON CONFLICT REPLACE)", nil, nil, nil) != SQLITE_OK {
+                let errmsg = String(cString: sqlite3_errmsg(db)!)
+                print("error creating table: \(errmsg)")
+            }
+
             observerStatus.append( item.observe(\.status, changeHandler: { [weak self] (item, value) in
                 
                 switch item.status {
@@ -592,6 +628,8 @@ public class Player : NSObject, AVAudioPlayerDelegate {
                     self?.setBuffering(false)
                     
                     self?.addPostPlayingBufferListeners(item: item)
+
+
                     
                     result(nil)
                 case .failed:
@@ -778,6 +816,7 @@ public class Player : NSObject, AVAudioPlayerDelegate {
         self.player = nil   
         self.playing = false
         self.currentTimeTimer?.invalidate()
+        self.sqliteCurrentTimeTimer?.invalidate()
         #if os(iOS)
         self._deinit()
         #endif
@@ -796,6 +835,8 @@ public class Player : NSObject, AVAudioPlayerDelegate {
         self.player?.rate = self.rate
         self.currentTimeTimer = Timer.scheduledTimer(timeInterval: 0.05, target: self, selector: #selector(updateTimer), userInfo: nil, repeats: true)
         self.currentTimeTimer?.fire()
+        self.sqliteCurrentTimeTimer = Timer.scheduledTimer(timeInterval: 1, target: self, selector: #selector(updateSqliteTimer), userInfo: nil, repeats: true)
+        self.sqliteCurrentTimeTimer?.fire()
         self.playing = true
         
         self.updateNotifStatus(playing: self.playing, stopped: false, rate: self.player?.rate)
@@ -864,8 +905,39 @@ public class Player : NSObject, AVAudioPlayerDelegate {
         }
     }
     
+    
     func updateCurrentTime(time: CMTime){
         self.currentTimeMs = self.getMillisecondsFromCMTime(time)
+    }
+
+    func updateSqliteCurrentTime(time: CMTime){
+        var statement: OpaquePointer?
+
+        if sqlite3_prepare_v2(db, "insert or replace into tracker (book_id, chapter_index, time) values (?, ?, ?)", -1, &statement, nil) != SQLITE_OK {
+            let errmsg = String(cString: sqlite3_errmsg(db)!)
+            print("error preparing insert: \(errmsg)")
+        }
+
+
+        if sqlite3_bind_int(statement, 1, Int32(bookId!)) != SQLITE_OK {
+            let errmsg = String(cString: sqlite3_errmsg(db)!)
+            print("failure binding foo: \(errmsg)")
+        }
+
+        if sqlite3_bind_int(statement, 2, Int32(chapterIndex!)) != SQLITE_OK {
+            let errmsg = String(cString: sqlite3_errmsg(db)!)
+            print("failure binding foo: \(errmsg)")
+        }
+
+        if sqlite3_bind_double(statement, 3, self.currentTimeMs) != SQLITE_OK {
+            let errmsg = String(cString: sqlite3_errmsg(db)!)
+            print("failure binding foo: \(errmsg)")
+        }
+
+        if sqlite3_step(statement) != SQLITE_DONE {
+            let errmsg = String(cString: sqlite3_errmsg(db)!)
+            print("failure inserting foo: \(errmsg)")
+        }
     }
     
     var _playing : Bool = false
@@ -880,6 +952,8 @@ public class Player : NSObject, AVAudioPlayerDelegate {
     }
     
     var currentTimeTimer: Timer?
+    var sqliteCurrentTimeTimer: Timer?
+
     
     @objc public func playerDidFinishPlaying(note: NSNotification){
         if(self._loopSingleAudio){
@@ -914,13 +988,25 @@ public class Player : NSObject, AVAudioPlayerDelegate {
         
         self.playing = false
         self.currentTimeTimer?.invalidate()
+        self.sqliteCurrentTimeTimer?.invalidate()
+
     }
     
     @objc func updateTimer(){
         //log("updateTimer")
+        
         if let p = self.player {
             if let currentItem = p.currentItem {
                 self.updateCurrentTime(time: currentItem.currentTime())
+            }
+        }
+    }
+    @objc func updateSqliteTimer(){
+        //log("updateTimer")
+        
+        if let p = self.player {
+            if let currentItem = p.currentItem {
+                self.updateSqliteCurrentTime(time: currentItem.currentTime())
             }
         }
     }
@@ -1127,7 +1213,7 @@ class Music : NSObject, FlutterPlugin {
                 self.getOrCreatePlayer(id: id)
                     .setVolume(volume: volume)
                 result(true)
-                
+            
             case "playSpeed" :
                 guard let args = call.arguments as? NSDictionary else {
                     result(FlutterError(
@@ -1383,6 +1469,26 @@ class Music : NSObject, FlutterPlugin {
                     break
                 }
                 
+                guard let bookIdTemp = args["bookId"] as? Int else {
+                     result(FlutterError(
+                         code: "METHOD_CALL",
+                         message: call.method + " Arguments[bookId] must be a Int",
+                         details: nil)
+                     )
+                     break
+                }
+
+                guard let chapterIndexTemp = args["chapterIndex"] as? Int else {
+                     result(FlutterError(
+                         code: "METHOD_CALL",
+                         message: call.method + " Arguments[chapterIndex] must be a Int",
+                         details: nil)
+                     )
+                     break
+                 }
+
+                     
+                
                 let networkHeaders = args["networkHeaders"] as? NSDictionary
                 
                 let respectSilentMode = args["respectSilentMode"] as? Bool ?? false
@@ -1409,7 +1515,10 @@ class Music : NSObject, FlutterPlugin {
                         audioFocusStrategy: audioFocusStrategy,
                         playSpeed: playSpeed,
                         networkHeaders: networkHeaders,
-                        result: result
+                        result: result,
+                        bookId: bookIdTemp,
+                        chapterIndex: chapterIndexTemp
+                        
                 )
                 
             default:

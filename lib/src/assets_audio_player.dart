@@ -52,6 +52,11 @@ const METHOD_NOTIFICATION_PLAY_OR_PAUSE = "player.playOrPause";
 const METHOD_PLAY_SPEED = "player.playSpeed";
 const METHOD_ERROR = "player.error";
 const METHOD_AUDIO_SESSION_ID = "player.audioSessionId";
+// const METHOD_BOOK_ID = "player.bookId";
+// const METHOD_CHAPTER_INDEX_ID = "player.chapterIndex";
+
+int globalBookId;
+int globalChapterIndex;
 
 enum PlayerState {
   play,
@@ -774,6 +779,8 @@ class AssetsAudioPlayer {
         headPhoneStrategy: _playlist.headPhoneStrategy,
         audioFocusStrategy: _playlist.audioFocusStrategy,
         seek: seek,
+        bookId: globalBookId,
+        chapterIndex: globalChapterIndex,
       );
     }
   }
@@ -963,7 +970,13 @@ class AssetsAudioPlayer {
     HeadPhoneStrategy headPhoneStrategy,
     AudioFocusStrategy audioFocusStrategy,
     NotificationSettings notificationSettings,
+    int bookId,
+    int chapterIndex,
   }) async {
+    print(bookId);
+    print(chapterIndex);
+    globalBookId = bookId;
+    globalChapterIndex = chapterIndex;
     final focusStrategy = audioFocusStrategy ?? defaultFocusStrategy;
 
     final currentAudio = _lastOpenedAssetsAudio;
@@ -991,6 +1004,8 @@ class AssetsAudioPlayer {
               audio.playSpeed ??
               this.playSpeed.value ??
               defaultPlaySpeed,
+          "bookId": bookId,
+          "chapterIndex": chapterIndex,
         };
         if (seek != null) {
           params["seek"] = seek.inMilliseconds.round();
@@ -1078,7 +1093,12 @@ class AssetsAudioPlayer {
     PlayInBackground playInBackground = _DEFAULT_PLAY_IN_BACKGROUND,
     HeadPhoneStrategy headPhoneStrategy = HeadPhoneStrategy.none,
     AudioFocusStrategy audioFocusStrategy,
+    int bookId,
+    int chapterIndex,
   }) async {
+    print("OOOO GGOO $bookId");
+    // globalBookId = bookId;
+    // globalChapterIndex = chapterIndex;
     _lastSeek = null;
     _replaceRealtimeSubscription();
     this._playlist = _CurrentPlaylist(
@@ -1092,6 +1112,8 @@ class AssetsAudioPlayer {
       notificationSettings: notificationSettings,
       playInBackground: playInBackground,
       headPhoneStrategy: headPhoneStrategy,
+      bookId: globalBookId,
+      chapterIndex: globalChapterIndex,
     );
     _updatePlaylistIndexes();
     _playlist.moveTo(playlist.startIndex);
@@ -1132,7 +1154,11 @@ class AssetsAudioPlayer {
     HeadPhoneStrategy headPhoneStrategy = HeadPhoneStrategy.none,
     AudioFocusStrategy audioFocusStrategy,
     bool forceOpen = false, //skip the _acceptUserOpen
+    int bookId,
+    int chapterIndex,
   }) async {
+    globalBookId = bookId;
+    globalChapterIndex = chapterIndex;
     final focusStrategy = audioFocusStrategy ?? defaultFocusStrategy;
 
     if (forceOpen) {
@@ -1420,6 +1446,8 @@ class _CurrentPlaylist {
   final AudioFocusStrategy audioFocusStrategy;
   final PlayInBackground playInBackground;
   final HeadPhoneStrategy headPhoneStrategy;
+  int bookId = 0;
+  int chapterIndex = 0;
 
   int playlistIndex = 0;
 
@@ -1522,6 +1550,8 @@ class _CurrentPlaylist {
     this.loopMode,
     this.headPhoneStrategy,
     this.audioFocusStrategy,
+    this.bookId,
+    this.chapterIndex,
   });
 
   void returnToFirst() {
