@@ -5,6 +5,9 @@ import android.content.Intent
 import android.media.AudioManager
 import android.os.Handler
 import android.os.Message
+import android.content.ContentValues
+import android.database.sqlite.SQLiteDatabase
+import android.database.sqlite.SQLiteOpenHelper
 import com.github.florent37.assets_audio_player.headset.HeadsetStrategy
 import com.github.florent37.assets_audio_player.notification.AudioMetas
 import com.github.florent37.assets_audio_player.notification.NotificationManager
@@ -64,6 +67,9 @@ class Player(
     var onStop: (() -> Unit)? = null
     var onNotificationPlayOrPause: (() -> Unit)? = null
     var onNotificationStop: (() -> Unit)? = null
+    var bookId: Int = 0;
+    var chapterIndex: Int = 0
+
     //endregion
 
     private var respectSilentMode: Boolean = false
@@ -89,6 +95,9 @@ class Player(
     private var audioMetas: AudioMetas? = null
     private var notificationSettings: NotificationSettings? = null
 
+    private var _db : SQLiteDatabase? = null
+
+
     private var _lastPositionMs: Long? = null
     private val updatePosition = object : Runnable {
         override fun run() {
@@ -104,6 +113,12 @@ class Player(
                         // Send position (milliseconds) to the application.
                         onPositionMSChanged?.invoke(positionMs)
                         _lastPositionMs = positionMs
+                        val values = ContentValues().apply {
+                            put("book_id", bookId)
+                            put("chapter_index", chapterIndex)
+                            put("time", positionMs)
+                        }
+                        _db?.insert("tracker", null, values)
                     }
 
                     if (respectSilentMode) {
@@ -160,7 +175,9 @@ class Player(
              audioFocusStrategy: AudioFocusStrategy,
              networkHeaders: Map<*, *>?,
              result: MethodChannel.Result,
-             context: Context
+             context: Context,
+             bookId: Int,
+             chapterIndex: Int
     ) {
         try {
             stop(pingListener = false)
@@ -168,12 +185,19 @@ class Player(
             print(t)
         }
 
+        val dbHelper = FeedReaderDbHelper(context)
+        _db = dbHelper.writableDatabase
+
+
+
         this.displayNotification = displayNotification
         this.audioMetas = audioMetas
         this.notificationSettings = notificationSettings
         this.respectSilentMode = respectSilentMode
         this.headsetStrategy = headsetStrategy
         this.audioFocusStrategy = audioFocusStrategy
+        this.bookId = bookId
+        this.chapterIndex = chapterIndex
 
         _lastOpenedPath = assetAudioPath
       
@@ -258,6 +282,7 @@ class Player(
             onStop?.invoke()
             updateNotif(removeNotificationOnStop= removeNotification)
         }
+        _db?.close()
     }
 
 
@@ -547,5 +572,34 @@ class ForwardHandler : Handler() {
                 sendEmptyMessageDelayed(MESSAGE_FORWARD, DELAY)
             }
         }
+    }
+}
+
+private const val SQL_CREATE_ENTRIES =
+        "CREATE TABLE IF NOT EXISTS tracker (" +
+                "book_id INTEGER," +
+                "chapter_index INTEGER," +
+                "time REAL, UNIQUE(book_id, chapter_index) ON CONFLICT REPLACE)"
+
+
+private const val SQL_DELETE_ENTRIES = "DROP TABLE IF EXISTS tracker"
+
+class FeedReaderDbHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null, DATABASE_VERSION) {
+    override fun onCreate(db: SQLiteDatabase) {
+        db.execSQL(SQL_CREATE_ENTRIES)
+    }
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        // This database is only a cache for online data, so its upgrade policy is
+        // to simply to discard the data and start over
+        db.execSQL(SQL_DELETE_ENTRIES)
+        onCreate(db)
+    }
+    override fun onDowngrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        onUpgrade(db, oldVersion, newVersion)
+    }
+    companion object {
+        // If you change the database schema, you must increment the database version.
+        const val DATABASE_VERSION = 1
+        const val DATABASE_NAME = "tracker.db"
     }
 }

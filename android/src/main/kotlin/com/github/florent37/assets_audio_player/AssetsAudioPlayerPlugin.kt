@@ -476,6 +476,10 @@ class AssetsAudioPlayer(
                         result.error("WRONG_FORMAT", "The specified argument must be an Map<String, Any> containing a `playSpeed`", null)
                         return
                     }
+                    val bookId = args["bookId"] as? Int ?: 0
+                    val chapterIndex = args["chapterIndex"] as? Int ?: 0
+
+
                     val autoStart = args["autoStart"] as? Boolean ?: true
                     val displayNotification = args["displayNotification"] as? Boolean ?: false
                     val respectSilentMode = args["respectSilentMode"] as? Boolean ?: false
@@ -512,7 +516,9 @@ class AssetsAudioPlayer(
                             headsetStrategy = headsetStrategy,
                             audioFocusStrategy = audioFocusStrategy,
                             networkHeaders = networkHeaders,
-                            context = context
+                            context = context,
+                            bookId = bookId,
+                            chapterIndex = chapterIndex
                     )
                 } ?: run {
                     result.error("WRONG_FORMAT", "The specified argument must be an Map<*, Any>.", null)

@@ -973,8 +973,6 @@ class AssetsAudioPlayer {
     int bookId,
     int chapterIndex,
   }) async {
-    print(bookId);
-    print(chapterIndex);
     globalBookId = bookId;
     globalChapterIndex = chapterIndex;
     final focusStrategy = audioFocusStrategy ?? defaultFocusStrategy;
@@ -1096,7 +1094,6 @@ class AssetsAudioPlayer {
     int bookId,
     int chapterIndex,
   }) async {
-    print("OOOO GGOO $bookId");
     // globalBookId = bookId;
     // globalChapterIndex = chapterIndex;
     _lastSeek = null;

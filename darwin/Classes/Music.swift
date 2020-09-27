@@ -52,9 +52,6 @@ func openDatabase() -> OpaquePointer? {
     .url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
     .appendingPathComponent("tracker.db")
 
-  print("I'm here: \(fileURL.path)")
-
-
   var db: OpaquePointer?
   if sqlite3_open(fileURL.path, &db) == SQLITE_OK {
     print("Successfully opened connection to database at \(fileURL.path)")
