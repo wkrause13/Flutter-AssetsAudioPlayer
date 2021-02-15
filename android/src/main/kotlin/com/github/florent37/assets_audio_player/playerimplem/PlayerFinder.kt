@@ -33,6 +33,7 @@ object PlayerFinder {
     private val SmoothStreamingExoPlayerTester = PlayerImplemTesterExoPlayer(PlayerImplemTesterExoPlayer.Type.SmoothStreaming)
     private val MediaPlayerTester = PlayerImplemTesterMediaPlayer()
 
+
     private val playerImpls = listOf<PlayerImplemTester>(
             DefaultExoPlayerTester,
             HLSExoPlayerTester,
@@ -70,11 +71,11 @@ object PlayerFinder {
         try {
             //try the first
             val implemTester = remainingImpls.first()
-            val playerWithDuration = implemTester.open(
+            val playerwithDuration = implemTester.open(
                     configuration = configuration
             )
             //if we're here : no exception, we can return it
-            return playerWithDuration
+            return playerwithDuration
         } catch (unrachable : AssetAudioPlayerThrowable.UnreachableException) {
             //not usefull to test all players if the first is UnreachableException
             throw NoPlayerFoundException(why= unrachable)

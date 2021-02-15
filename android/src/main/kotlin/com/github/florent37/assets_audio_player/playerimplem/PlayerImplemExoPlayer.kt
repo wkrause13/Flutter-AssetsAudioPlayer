@@ -29,12 +29,14 @@ class IncompatibleException(val audioType: String, val type: PlayerImplemTesterE
 
 class PlayerImplemTesterExoPlayer(private val type: Type) : PlayerImplemTester {
 
+
     enum class Type {
         Default,
         HLS,
         DASH,
         SmoothStreaming
     }
+
 
     override suspend fun open(configuration: PlayerFinderConfiguration) : PlayerFinder.PlayerWithDuration {
         if(AssetsAudioPlayerPlugin.displayLogs) {
@@ -62,7 +64,7 @@ class PlayerImplemTesterExoPlayer(private val type: Type) : PlayerImplemTester {
         )
 
         try {
-            val durationMS = mediaPlayer.open(
+            val durationMS = mediaPlayer?.open(
                     context = configuration.context,
                     assetAudioPath = configuration.assetAudioPath,
                     audioType = configuration.audioType,
@@ -71,14 +73,14 @@ class PlayerImplemTesterExoPlayer(private val type: Type) : PlayerImplemTester {
                     flutterAssets = configuration.flutterAssets
             )
             return PlayerFinder.PlayerWithDuration(
-                    player = mediaPlayer,
-                    duration = durationMS
+                    player = mediaPlayer!!,
+                    duration = durationMS!!
             )
         } catch (t: Throwable) {
             if(AssetsAudioPlayerPlugin.displayLogs) {
                 Log.d("PlayerImplem", "failed to open with exoplayer($type)")
             }
-            mediaPlayer.release()
+            mediaPlayer?.release()
             throw  t
         }
     }
@@ -169,7 +171,7 @@ class PlayerImplemExoPlayer(
                 val factory = DataSource.Factory { assetDataSource }
                 return ProgressiveMediaSource
                         .Factory(factory, DefaultExtractorsFactory())
-                        .createMediaSource(assetDataSource.uri)
+                        .createMediaSource(MediaItem.fromUri(assetDataSource.uri!!))
             }
         } catch (e: Exception) {
             throw e
@@ -318,7 +320,7 @@ class PlayerImplemExoPlayer(
             listener(id)
         } else {
             val listener = object : AudioListener {
-                override fun onAudioSessionId(audioSessionId: Int) {
+                override fun onAudioSessionIdChanged(audioSessionId: Int) {
                     listener(audioSessionId)
                     mediaPlayer?.audioComponent?.removeAudioListener(this)
                 }

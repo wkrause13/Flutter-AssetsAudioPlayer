@@ -269,12 +269,12 @@ class NotificationService : Service() {
                     }
                 }
                 .setStyle(androidx.media.app.NotificationCompat.MediaStyle()
-                        .also {
-                            when (notificationSettings.numberEnabled()) {
-                                1 -> it.setShowActionsInCompactView(0)
-                                2 -> it.setShowActionsInCompactView(0, 1)
-                                3 -> it.setShowActionsInCompactView(0, 1, 2)
-                                else -> it.setShowActionsInCompactView()
+                        .also{
+                           when (notificationSettings.numberEnabled()) {	
+                                1 -> it.setShowActionsInCompactView(0)	
+                                2 -> it.setShowActionsInCompactView(0, 1)	
+                                3 -> it.setShowActionsInCompactView(0, 1, 2)	
+                                else -> it.setShowActionsInCompactView()	
                             }
                         }
                         .setShowCancelButton(true)
@@ -282,10 +282,10 @@ class NotificationService : Service() {
                 )
                 .setSmallIcon(getSmallIcon(context))
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-                .setVibrate(longArrayOf(0L))
                 .setPriority(NotificationCompat.PRIORITY_MAX)
                 .setContentTitle(action.audioMetas.title)
                 .setContentText(action.audioMetas.artist)
+                .setOnlyAlertOnce(true)
                 .also {
                     if (!action.audioMetas.album.isNullOrEmpty()) {
                         it.setSubText(action.audioMetas.album)
