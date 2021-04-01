@@ -1573,8 +1573,8 @@ class _CurrentPlaylist {
     this.loopMode,
     this.headPhoneStrategy,
     this.audioFocusStrategy,
-    this.bookId,
-    this.chapterIndex,
+    this.bookId = 0,
+    this.chapterIndex = 0,
   });
 
   void returnToFirst() {
